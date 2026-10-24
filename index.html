@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>ペンギンVSピエロ スロット（ふつう）</title>
+<style>
+*{
+    box-sizing:border-box;
+    -webkit-tap-highlight-color:transparent;
+}
+html,body{
+    margin:0;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    touch-action:none;
+    font-family:sans-serif;
+    background:#0f172a;
+    color:#fff;
+}
+.screen{
+    width:100%;
+    height:100%;
+    display:none;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    padding:16px;
+    text-align:center;
+}
+.active{
+    display:flex;
+}
+h1{
+    margin:10px 0;
+    font-size:clamp(28px,7vw,44px);
+}
+p{
+    line-height:1.6;
+}
+button{
+    min-width:180px;
+    min-height:60px;
+    border:none;
+    border-radius:16px;
+    font-size:22px;
+    font-weight:bold;
+    cursor:pointer;
+}
+.startBtn{
+    background:#22c55e;
+    color:#fff;
+}
+.retryBtn{
+    background:#3b82f6;
+    color:#fff;
+}
+#hud{
+    width:100%;
+    display:flex;
+    justify-content:space-between;
+    font-size:22px;
+    font-weight:bold;
+    margin-bottom:10px;
+}
+#gameArea{
+    width:100%;
+    max-width:500px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+}
+.slotWrap{
+    width:100%;
+    display:flex;
+    justify-content:center;
+    gap:8px;
+    margin:10px 0;
+}
+.reel{
+    width:30%;
+    height:min(30vw,140px);
+    max-height:140px;
+    background:#fff;
+    color:#000;
+    border-radius:16px;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    font-size:min(13vw,68px);
+    font-weight:bold;
+    box-shadow:0 0 10px rgba(255,255,255,.3);
+}
+.controls{
+    display:flex;
+    gap:10px;
+    width:100%;
+    justify-content:center;
+    margin-top:10px;
+}
+.stopBtn{
+    flex:1;
+    max-width:140px;
+    min-height:70px;
+    font-size:22px;
+    border-radius:14px;
+    background:#ef4444;
+    color:#fff;
+}
+#message{
+    min-height:42px;
+    font-size:20px;
+    font-weight:bold;
+    margin-top:10px;
+}
+.rank{
+    font-size:40px;
+    font-weight:bold;
+    margin:12px 0;
+    color:#facc15;
+}
+.small{
+    font-size:18px;
+}
+.rainbow{
+    background:linear-gradient(90deg,#ff0000,#ff9900,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff);
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+}
+</style>
+</head>
+<body>
+
+<div id="startScreen" class="screen active">
+    <h1>🐧🎪 ペンギンVSピエロ スロット</h1>
+
+    <p>
+        30秒以内に高得点を目指そう！<br>
+        リールを止めて絵柄をそろえよう！<br><br>
+
+        🌈🐧🌈🐧🌈🐧 = 300点<br>
+        🐧🐧🐧 = 100点<br>
+        🤡🤡🤡 = 80点<br>
+        同じ絵柄3つ = 60点<br>
+        ペンギン2つ以上 = 20点<br><br>
+
+        🌈虹色ペンギンがときどき出現！<br>
+        😊ふつうモードで気軽にチャレンジ！
+    </p>
+
+    <button class="startBtn" onclick="startGame()">スタート</button>
+</div>
+
+<div id="gameScreen" class="screen">
+    <div id="gameArea">
+
+        <div id="hud">
+            <div>スコア: <span id="score">0</span></div>
+            <div>⏰ <span id="time">30</span></div>
+        </div>
+
+        <div class="slotWrap">
+            <div class="reel" id="reel1">🐧</div>
+            <div class="reel" id="reel2">🤡</div>
+            <div class="reel" id="reel3">🐧</div>
+        </div>
+
+        <div class="controls">
+            <button class="stopBtn" id="btn1">①止める</button>
+            <button class="stopBtn" id="btn2">②止める</button>
+            <button class="stopBtn" id="btn3">③止める</button>
+        </div>
+
+        <div id="message"></div>
+
+        <div class="small">
+            タップまたはクリックでリールを止めよう！
+        </div>
+
+    </div>
+</div>
+
+<div id="resultScreen" class="screen">
+    <h1>結果発表</h1>
+
+    <h2>最終スコア</h2>
+
+    <div id="finalScore" style="font-size:48px;font-weight:bold;">0</div>
+
+    <div class="rank" id="rank">C</div>
+
+    <button class="retryBtn" onclick="showStart()">
+        もう一度遊ぶ
+    </button>
+</div>
+
+<script>
+const normalSymbols=["🐧","🤡","🐟","⭐","🎈","🎪"];
+
+let score=0;
+let timeLeft=30;
+let timer=null;
+let reels=[];
+let reelValues=["🐧","🐧","🐧"];
+let stopped=[false,false,false];
+
+const reelEls=[
+document.getElementById("reel1"),
+document.getElementById("reel2"),
+document.getElementById("reel3")
+];
+
+function randomSymbol(){
+
+    if(Math.random()<0.08){
+        return "🌈🐧";
+    }
+
+    return normalSymbols[
+        Math.floor(Math.random()*normalSymbols.length)
+    ];
+}
+
+function switchScreen(id){
+    document.querySelectorAll(".screen")
+    .forEach(s=>s.classList.remove("active"));
+
+    document.getElementById(id)
+    .classList.add("active");
+}
+
+function startGame(){
+
+    score=0;
+    timeLeft=30;
+
+    document.getElementById("score").textContent=score;
+    document.getElementById("time").textContent=timeLeft;
+    document.getElementById("message").textContent="";
+
+    switchScreen("gameScreen");
+
+    startRound();
+
+    clearInterval(timer);
+
+    timer=setInterval(()=>{
+
+        timeLeft--;
+
+        document.getElementById("time").textContent=timeLeft;
+
+        if(timeLeft<=0){
+            endGame();
+        }
+
+    },1000);
+}
+
+function startRound(){
+
+    stopped=[false,false,false];
+
+    for(let i=0;i<3;i++){
+
+        clearInterval(reels[i]);
+
+        document.getElementById("btn"+(i+1)).disabled=false;
+
+        reels[i]=setInterval(()=>{
+
+            const symbol=randomSymbol();
+
+            reelValues[i]=symbol;
+
+            reelEls[i].textContent=symbol;
+
+            if(symbol==="🌈🐧"){
+                reelEls[i].classList.add("rainbow");
+            }else{
+                reelEls[i].classList.remove("rainbow");
+            }
+
+        },120);
+
+    }
+}
+
+function stopReel(index){
+
+    if(stopped[index]) return;
+
+    stopped[index]=true;
+
+    clearInterval(reels[index]);
+
+    document.getElementById("btn"+(index+1)).disabled=true;
+
+    if(stopped.every(v=>v)){
+
+        judge();
+
+        setTimeout(()=>{
+
+            if(timeLeft>0){
+                startRound();
+            }
+
+        },800);
+    }
+}
+
+function judge(){
+
+    const [a,b,c]=reelValues;
+
+    let add=0;
+    let msg="";
+
+    if(a==="🌈🐧" && b==="🌈🐧" && c==="🌈🐧"){
+        add=300;
+        msg="🌈超レア！ +300";
+    }
+    else if(a==="🐧" && b==="🐧" && c==="🐧"){
+        add=100;
+        msg="🐧大当たり！ +100";
+    }
+    else if(a==="🤡" && b==="🤡" && c==="🤡"){
+        add=80;
+        msg="🤡大当たり！ +80";
+    }
+    else if(a===b && b===c){
+        add=60;
+        msg="🎉3つぞろい！ +60";
+    }
+    else{
+
+        const penguins=[a,b,c]
+        .filter(v=>v==="🐧" || v==="🌈🐧")
+        .length;
+
+        if(penguins>=2){
+            add=20;
+            msg="🐧ペア成功！ +20";
+        }else{
+            msg="💨はずれ！";
+        }
+    }
+
+    score+=add;
+
+    document.getElementById("score").textContent=score;
+    document.getElementById("message").textContent=msg;
+}
+
+function endGame(){
+
+    clearInterval(timer);
+
+    reels.forEach(r=>clearInterval(r));
+
+    document.getElementById("finalScore").textContent=score;
+
+    let rank="C";
+
+    if(score>=700){
+        rank="SS";
+    }
+    else if(score>=500){
+        rank="S";
+    }
+    else if(score>=300){
+        rank="A";
+    }
+    else if(score>=150){
+        rank="B";
+    }
+
+    document.getElementById("rank").textContent="ランク " + rank;
+
+    switchScreen("resultScreen");
+}
+
+function showStart(){
+    switchScreen("startScreen");
+}
+
+document.getElementById("btn1")
+.addEventListener("click",()=>stopReel(0));
+
+document.getElementById("btn2")
+.addEventListener("click",()=>stopReel(1));
+
+document.getElementById("btn3")
+.addEventListener("click",()=>stopReel(2));
+
+document.addEventListener("gesturestart",e=>{
+    e.preventDefault();
+});
+
+let lastTouchEnd=0;
+
+document.addEventListener("touchend",function(e){
+
+    const now=new Date().getTime();
+
+    if(now-lastTouchEnd<=300){
+        e.preventDefault();
+    }
+
+    lastTouchEnd=now;
+
+},{passive:false});
+</script>
+
+</body>
+</html>
